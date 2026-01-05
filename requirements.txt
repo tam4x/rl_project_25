@@ -1,4 +1,4 @@
 numpy
-gymnasium
-stable-baselines3
+gymnasium[mujoco]
+stable-baselines3[extra]
 torch
