@@ -20,7 +20,7 @@ class Task:
 def build_vec_env(task: Task, seed: int = 0, normalize_obs: bool = True):
     def _init():
         env = task.make_env()
-        env = Monitor(env)  # logs episode returns/lengths
+        env = Monitor(env)
         env.reset(seed=seed)
         return env
 
@@ -68,7 +68,7 @@ def augment_obs_with_task_id(
     obs_batch: np.ndarray,
     task_id: int,
     n_tasks: int,
-    encoding: str = "onehot",  # "onehot" or "scalar"
+    encoding: str = "onehot",
     dtype: np.dtype = np.float32,
 ) -> np.ndarray:
     """
@@ -83,7 +83,6 @@ def augment_obs_with_task_id(
         return np.concatenate([obs_batch.astype(dtype, copy=False), tid], axis=1)
 
     if encoding == "scalar":
-        # scalar id as float column (optionally normalize yourself if you want)
         tid = np.full((obs_batch.shape[0], 1), float(task_id), dtype=dtype)
         return np.concatenate([obs_batch.astype(dtype, copy=False), tid], axis=1)
 
@@ -94,9 +93,9 @@ def collect_memory_from_sac_teacher(
     model: SAC,
     venv,
     task_name: str,
-    task_id: int,                 # NEW
-    n_tasks: int,                 # NEW (needed for one-hot)
-    task_id_encoding: str = "onehot",  # NEW
+    task_id: int,                 
+    n_tasks: int,                
+    task_id_encoding: str = "onehot",  
     n_steps: int = 100_000,
     deterministic_action: bool = True,
     store_actions: bool = True,
@@ -112,7 +111,7 @@ def collect_memory_from_sac_teacher(
     NOTE: obs from VecNormalize-wrapped venv are already normalized.
     """
     venv.seed(seed)
-    obs = venv.reset()  # (n_envs, obs_dim)
+    obs = venv.reset()
 
     obs_list = []
     mu_list = []
@@ -144,9 +143,9 @@ def collect_memory_from_sac_teacher(
 
     data = {
         "task": task_name,
-        "task_id": int(task_id),                 # NEW
-        "n_tasks": int(n_tasks),                 # NEW
-        "task_id_encoding": task_id_encoding,    # NEW
+        "task_id": int(task_id),                 
+        "n_tasks": int(n_tasks),                 
+        "task_id_encoding": task_id_encoding,    
         "obs": np.concatenate(obs_list, axis=0),        # (n_steps, obs_dim + extra)
         "mu": np.concatenate(mu_list, axis=0),          # (n_steps, act_dim)
         "log_std": np.concatenate(logstd_list, axis=0), # (n_steps, act_dim)
@@ -162,9 +161,9 @@ def save_memory_npz(data: Dict[str, Any], out_path: str):
     np.savez_compressed(
         out_path,
         task=data["task"],
-        task_id=data["task_id"],                       # NEW
-        n_tasks=data["n_tasks"],                       # NEW
-        task_id_encoding=data["task_id_encoding"],     # NEW
+        task_id=data["task_id"],                       
+        n_tasks=data["n_tasks"],                       
+        task_id_encoding=data["task_id_encoding"],     
         obs=data["obs"],
         mu=data["mu"],
         log_std=data["log_std"],

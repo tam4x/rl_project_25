@@ -11,7 +11,6 @@ from stable_baselines3 import PPO, SAC, TD3
 from stable_baselines3.common.evaluation import evaluate_policy
 
 
-# ---------- Helpers ----------
 def safe_name(s: str) -> str:
     """Make task names safe for filenames."""
     return (
@@ -23,7 +22,6 @@ def safe_name(s: str) -> str:
     )
 
 
-# ---------- Wrappers ----------
 class TargetVelocity(Wrapper):
     """
     Generic target-velocity reward wrapper (works for HalfCheetah and Walker2d).
@@ -74,7 +72,6 @@ class Walker2dJump(Wrapper):
         return obs, reward, terminated, truncated, info
 
 
-# ---------- Task factories ----------
 def task_base(env_id: str, seed: int = 0):
     env = gym.make(env_id)
     env.reset(seed=seed)
@@ -104,14 +101,12 @@ def task_walker2d_jump(seed: int = 0, baseline_height: float = 1.25, beta: float
     return env
 
 
-# ---------- Task dataclass ----------
 @dataclass(frozen=True)
 class Task:
     name: str
     make_env: Callable[[], gym.Env]
 
 
-# ---------- Vec env builder ----------
 def build_vec_env(task: Task, seed: int = 0, normalize_obs: bool = True):
     def _init():
         env = task.make_env()
@@ -127,7 +122,6 @@ def build_vec_env(task: Task, seed: int = 0, normalize_obs: bool = True):
     return venv
 
 
-# ---------- Teacher builder ----------
 def make_teacher(algo: str, env, seed: int = 0, logdir: str = None):
     algo = algo.upper()
     common = dict(verbose=1, seed=seed, tensorboard_log=logdir)
@@ -144,7 +138,6 @@ def make_teacher(algo: str, env, seed: int = 0, logdir: str = None):
     raise ValueError(f"Unknown algo: {algo}")
 
 
-# ---------- Train + save teacher ----------
 def train_teacher_for_task(
     task: Task,
     algo: str = "SAC",

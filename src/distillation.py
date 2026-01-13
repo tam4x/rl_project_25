@@ -28,7 +28,7 @@ class GaussianStudentPolicy(nn.Module):
         self.log_std_head = nn.Linear(in_dim, act_dim)
 
     def forward(self, obs, return_features=False):
-        z = self.backbone(obs)  # student latent
+        z = self.backbone(obs)
         mu = self.mu_head(z)
         log_std = torch.clamp(self.log_std_head(z), self.log_std_min, self.log_std_max)
         if return_features:
@@ -48,7 +48,6 @@ class DistillMemoryDataset(Dataset):
             if "action" in d.files else None
         )
 
-        # Optional metadata (for logging/debug)
         self.task = d["task"].item() if "task" in d.files else None
         self.task_id = int(d["task_id"]) if "task_id" in d.files else None
 
@@ -66,8 +65,6 @@ class DistillMemoryDataset(Dataset):
         action_t = torch.from_numpy(self.action_t[idx])
         return obs, mu_t, log_std_t, action_t
 
-import numpy as np
-import torch
 
 class ReplayPool:
     """
@@ -97,7 +94,6 @@ class ReplayPool:
         elif self.has_action != has_action:
             raise ValueError("ReplayPool: mixed presence of 'action' across npz files.")
 
-        # subsample to keep bounded
         if obs.shape[0] > self.max_per_task:
             idx = np.random.choice(obs.shape[0], self.max_per_task, replace=False)
             obs = obs[idx]
@@ -109,7 +105,7 @@ class ReplayPool:
             if has_action:
                 act = d["action"].astype(np.float32)
 
-        self.obs.append(torch.from_numpy(obs))       # keep on CPU
+        self.obs.append(torch.from_numpy(obs))       
         self.mu.append(torch.from_numpy(mu))
         self.log_std.append(torch.from_numpy(ls))
         if has_action:
@@ -119,7 +115,6 @@ class ReplayPool:
         if len(self.obs) == 0:
             return None
 
-        # pick a task chunk uniformly (simple + works well)
         k = np.random.randint(0, len(self.obs))
         N = self.obs[k].shape[0]
         idx = torch.randint(0, N, (batch_size,))
@@ -136,7 +131,6 @@ class ReplayPool:
 
 # D1
 def diag_gaussian_kl(mu_t, log_std_t, mu_s, log_std_s):
-    # shapes: (B, act_dim)
     std_t = torch.exp(log_std_t)
     std_s = torch.exp(log_std_s)
 
@@ -144,19 +138,18 @@ def diag_gaussian_kl(mu_t, log_std_t, mu_s, log_std_s):
     var_s = std_s ** 2
 
     kl = (log_std_s - log_std_t) + (var_t + (mu_t - mu_s) ** 2) / (2.0 * var_s) - 0.5
-    return kl.sum(dim=-1).mean()  # mean over batch
+    return kl.sum(dim=-1).mean()  
 
 # D2
 def action_mse(mu_s, action_t, action_space=None):
-    action = squash(mu_s, action_space)  # assumes mu_s is pre-squashed
+    action = squash(mu_s, action_space)  
     return F.mse_loss(action, action_t)
 
 # D3
 def certainty_weights(log_std_t, eps=1e-6):
     # weight per sample (B,)
-    std_t = torch.exp(log_std_t)              # (B, act_dim)
-    w = 1.0 / (eps + std_t.mean(dim=-1))      # (B,)
-    # normalize weights to keep scale stable
+    std_t = torch.exp(log_std_t)             
+    w = 1.0 / (eps + std_t.mean(dim=-1))      
     w = w / (w.mean() + 1e-8)
     return w
 
@@ -167,9 +160,9 @@ def weighted_diag_gaussian_kl(mu_t, log_std_t, mu_s, log_std_s):
     var_s = std_s ** 2
 
     kl_per_dim = (log_std_s - log_std_t) + (var_t + (mu_t - mu_s) ** 2) / (2.0 * var_s) - 0.5
-    kl_per_sample = kl_per_dim.sum(dim=-1)  # (B,)
+    kl_per_sample = kl_per_dim.sum(dim=-1)  
 
-    w = certainty_weights(log_std_t)         # (B,)
+    w = certainty_weights(log_std_t)         
     return (w * kl_per_sample).mean()
 
 
@@ -182,13 +175,11 @@ def sac_teacher_latent(model, obs_batch_np):
     actor = model.policy.actor
     obs = torch.as_tensor(obs_batch_np, dtype=torch.float32, device=model.device)
 
-    # Most SB3 versions have features_extractor + latent_pi
     if hasattr(actor, "features_extractor") and hasattr(actor, "latent_pi"):
         feat = actor.features_extractor(obs)
         lat = actor.latent_pi(feat)
         return lat
 
-    # Fallback: some versions use extract_features()
     if hasattr(actor, "extract_features") and hasattr(actor, "latent_pi"):
         feat = actor.extract_features(obs)
         lat = actor.latent_pi(feat)
@@ -238,7 +229,7 @@ def train_distill_step_with_replay(
     student,
     method: str,
     current_npz: str,
-    replay_pool: ReplayPool = None,   # FAST replay
+    replay_pool: ReplayPool = None,   
     replay_ratio: float = 0.10,
     teacher_sac_model=None,
     projector=None,
@@ -250,7 +241,7 @@ def train_distill_step_with_replay(
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
 ):
     method = method.upper()
-    replay_pool = replay_pool  # may be None
+    replay_pool = replay_pool  
 
     # current data loader
     ds_cur = DistillMemoryDataset(current_npz)
@@ -345,13 +336,13 @@ def train_distill_step_with_replay(
 
             opt.zero_grad()
 
-            # forward
+            
             if method == "D4_KL_LATENT":
                 mu_s, log_std_s, z_s = student(obs, return_features=True)
             else:
                 mu_s, log_std_s = student(obs)
 
-            # loss
+    
             if method == "D1_KL":
                 loss = diag_gaussian_kl(mu_t, log_std_t, mu_s, log_std_s)
 
@@ -420,8 +411,8 @@ def training_loop_with_replay(student,
                 projector=projector,         
                 method=method,
                 current_npz=cfg["npz_path"],
-                replay_pool=replay_pool,     # <-- replay old tasks
-                replay_ratio=replay_ratio,           # try 0.10, if still forgetting
+                replay_pool=replay_pool,    
+                replay_ratio=replay_ratio,          
                 teacher_sac_model=teacher_model,
                 epochs=100,
                 lambda_feat=0.2,
@@ -433,22 +424,20 @@ def training_loop_with_replay(student,
                 projector=projector,
                 method=method,
                 current_npz=cfg["npz_path"],
-                replay_pool=replay_pool,     # <-- replay old tasks
-                replay_ratio=replay_ratio,           # try 0.10, if still forgetting
+                replay_pool=replay_pool,  
+                replay_ratio=replay_ratio,    
                 epochs=100,
                 anchor_coeff=anchor_coeff,
             )
 
         replay_pool.add_npz(cfg["npz_path"])
 
-        # eval after each task: build eval env from env_fn too
         venv_eval = build_vec_env(task, seed=0, normalize_obs=False)
         if cfg["vec_path"] is not None:
             venv_eval = VecNormalize.load(cfg["vec_path"], venv_eval)
             venv_eval.training = False
             venv_eval.norm_reward = False
 
-        # attach ids so eval_offline_student can auto-append one-hot
         venv_eval.task_id = cfg["task_id"]
         venv_eval.n_tasks = cfg["n_tasks"]
 
@@ -486,7 +475,6 @@ def load_eval_env_with_vecnorm(env_id: str, vec_path, informingvec_path: str, se
         venv.training = False
         venv.norm_reward = False
 
-    # Attach metadata for eval augmentation
     venv.task_id = int(task_id)
     venv.n_tasks = int(n_tasks)
 
@@ -504,15 +492,13 @@ def eval_offline_student(student, venv_eval, n_episodes: int = 10):
     device = next(student.parameters()).device
     student.eval()
 
-    # reset
-    obs = venv_eval.reset()   # shape: (n_env=1, obs_dim_env)
+    obs = venv_eval.reset()   
     if isinstance(obs, tuple):
         obs = obs[0]
 
     obs_dim_env = obs.shape[1]
 
     # infer student expected obs dim
-    # (assumes first Linear has in_features == obs_dim_student)
     first_linear = None
     for m in student.modules():
         if isinstance(m, torch.nn.Linear):
@@ -526,7 +512,6 @@ def eval_offline_student(student, venv_eval, n_episodes: int = 10):
     if extra < 0:
         raise ValueError(f"Student expects obs_dim={obs_dim_student}, but env provides obs_dim={obs_dim_env}.")
 
-    # get task meta (default safe fallbacks)
     task_id = int(getattr(venv_eval, "task_id", 0))
     n_tasks = int(getattr(venv_eval, "n_tasks", extra if extra > 0 else 1))
 
@@ -534,16 +519,14 @@ def eval_offline_student(student, venv_eval, n_episodes: int = 10):
     cur_ret = 0.0
 
     while len(ep_returns) < n_episodes:
-        obs_t = torch.as_tensor(obs, dtype=torch.float32, device=device)  # (1, obs_dim_env)
+        obs_t = torch.as_tensor(obs, dtype=torch.float32, device=device)
 
-        # Append task vector if needed
         if extra > 0:
-            # one-hot of length 'extra' (usually equals n_tasks)
             tid = torch.zeros((obs_t.shape[0], extra), device=device, dtype=obs_t.dtype)
             if not (0 <= task_id < extra):
                 raise ValueError(f"task_id={task_id} out of range for task one-hot length={extra}")
             tid[:, task_id] = 1.0
-            obs_t = torch.cat([obs_t, tid], dim=1)  # (1, obs_dim_student)
+            obs_t = torch.cat([obs_t, tid], dim=1)
 
         mu_s, log_std_s = student(obs_t)
         action = squash(mu_s, venv_eval.action_space).cpu().numpy()
