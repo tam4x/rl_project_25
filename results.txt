@@ -1,0 +1,27 @@
+Halfcheetah anchor = 1e-4 and replay 0.2 and max_replay 60000
+Teacher Values
+Task 1.0: mean reward = -30.433705299999996 +/- 1.0390776306118856
+Task 6.0: mean reward = -381.2657214 +/- 4.558168091412163
+Task -1.0: mean reward = -29.793763399999996 +/- 1.6171454076166556
+35 min
+Student Values D1
+[FINAL EVAL] HC_WALK_v1.0: -32.18 +/- 1.03
+[FINAL EVAL] HC_RUN_v6.0: -385.86 +/- 8.43
+[FINAL EVAL] HC_BACK_v-1.0: -29.34 +/- 1.73
+Values D2
+[FINAL EVAL] HC_WALK_v1.0: -155.73 +/- 361.65
+[FINAL EVAL] HC_RUN_v6.0: -405.06 +/- 8.51
+[FINAL EVAL] HC_BACK_v-1.0: -155.75 +/- 360.31
+48 min
+Values D3
+[FINAL EVAL] HC_WALK_v1.0: -33.04 +/- 0.71
+[FINAL EVAL] HC_RUN_v6.0: -379.65 +/- 7.74
+[FINAL EVAL] HC_BACK_v-1.0: -29.29 +/- 1.55
+38min
+Values D4
+[FINAL EVAL] HC_WALK_v1.0: -31.59 +/- 0.93
+[FINAL EVAL] HC_RUN_v6.0: -386.15 +/- 9.37
+[FINAL EVAL] HC_BACK_v-1.0: -29.80 +/- 0.76
+38min
+
+

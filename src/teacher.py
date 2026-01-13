@@ -179,3 +179,66 @@ def train_teacher_for_task(
 
     venv.close()
     return {"task": task.name, "algo": algo, "mean": mean_r, "std": std_r, "model_path": model_path, "vec_path": vec_path}
+
+
+
+
+def task_halfcheetah_target_velocity_render(target_v: float, seed: int = 0,
+                                            vel_scale: float = 1.0, ctrl_cost_weight: float = 0.1):
+    env = gym.make("HalfCheetah-v4", render_mode="human")
+    env = TargetVelocity(env, target_velocity=target_v, vel_scale=vel_scale, ctrl_cost_weight=ctrl_cost_weight)
+    env.reset(seed=seed)
+    return env
+
+
+def make_render_vecenv(task_make_env, seed=0):
+    def _init():
+        env = task_make_env()
+        env = Monitor(env)
+        env.reset(seed=seed)
+        return env
+    return DummyVecEnv([_init])
+
+
+
+def test_teacher_render(model_path: str, vec_path: Optional[str] = None, task: float = 1.0):
+    # build render env (DummyVecEnv -> VecNormalize)
+    venv = make_render_vecenv(lambda: task_halfcheetah_target_velocity_render(task, seed=0), seed=0)
+    venv = VecNormalize.load(vec_path, venv)
+    venv.training = False
+    venv.norm_reward = False
+
+    # load model
+    model = SAC.load(model_path, env=venv)
+
+    # rollout
+    obs = venv.reset()
+    for _ in range(2000):
+        action, _ = model.predict(obs, deterministic=True)
+        obs, reward, done, info = venv.step(action)
+        if done[0]:
+            obs = venv.reset()
+
+    venv.close()
+
+
+def eval_teacher(model_path: str, vec_path: str, make_env_fn, n_eval_episodes: int = 10, seed: int = 0):
+    def _init():
+        env = make_env_fn()
+        env = Monitor(env)
+        env.reset(seed=seed)
+        return env
+
+    venv = DummyVecEnv([_init])
+    venv = VecNormalize.load(vec_path, venv)
+    venv.training = False
+    venv.norm_reward = False
+
+    model = SAC.load(model_path, env=venv)
+
+    mean_r, std_r = evaluate_policy(model, venv, n_eval_episodes=n_eval_episodes, deterministic=True)
+    venv.close()
+    return mean_r, std_r
+
+
+
