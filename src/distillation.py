@@ -224,6 +224,34 @@ def squash(mu, action_space):
     high = torch.as_tensor(action_space.high, device=mu.device)
     return (low + (a + 1) * 0.5 * (high - low))
 
+def sample_action_from_student(
+    student,
+    obs: torch.Tensor,           # shape: (B, obs_dim)
+    low,
+    high,                # gym.spaces.Box
+    deterministic: bool = False,
+):
+    """
+    Returns:
+      action: (B, act_dim) in env action space
+      pre_tanh_action: (B, act_dim) before tanh
+    """
+    mu, log_std = student(obs)
+    std = torch.exp(log_std)
+
+    if deterministic:
+        pre_tanh = mu
+    else:
+        eps = torch.randn_like(mu)
+        pre_tanh = mu + std * eps   # reparameterization
+
+    # squash
+    tanh_action = torch.tanh(pre_tanh)
+
+    # scale to env bounds
+    action = low + 0.5 * (tanh_action + 1.0) * (high - low)
+
+    return action, pre_tanh
 
 def train_distill_step_with_replay(
     student,
@@ -351,7 +379,9 @@ def train_distill_step_with_replay(
                     raise ValueError("D2_MSE needs 'action' stored in npz.")
                 if teacher_sac_model is None:
                     raise ValueError("D2_MSE needs teacher_sac_model (action scaling).")
-                loss = F.mse_loss(squash_cached(mu_s), action_t)
+                # Create the gaussian out of mu_s and squash it
+                action, _ = sample_action_from_student(student, obs, low_t, high_t, deterministic=False)
+                loss = F.mse_loss(action, action_t)
 
             elif method == "D3_WKL":
                 loss = weighted_diag_gaussian_kl(mu_t, log_std_t, mu_s, log_std_s)
@@ -385,6 +415,7 @@ def training_loop_with_replay(student,
                               projector, 
                               method, 
                               TASK_SEQUENCE,
+                              epochs,
                               max_replay_per_task: int = 60_000,
                               replay_ratio: float = 0.20,
                               anchor_coeff: float = 1e-4):
@@ -414,7 +445,7 @@ def training_loop_with_replay(student,
                 replay_pool=replay_pool,    
                 replay_ratio=replay_ratio,          
                 teacher_sac_model=teacher_model,
-                epochs=100,
+                epochs=epochs,
                 lambda_feat=0.2,
                 anchor_coeff=anchor_coeff,
             )
@@ -426,7 +457,7 @@ def training_loop_with_replay(student,
                 current_npz=cfg["npz_path"],
                 replay_pool=replay_pool,  
                 replay_ratio=replay_ratio,    
-                epochs=100,
+                epochs=epochs,
                 anchor_coeff=anchor_coeff,
             )
 
