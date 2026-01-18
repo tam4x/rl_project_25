@@ -49,7 +49,6 @@ class TargetVelocity(Wrapper):
 
 class Walker2dJump(Wrapper):
     """
-    Optional: Jump task for Walker2d (harder).
     Reward = beta * max(0, height - h0) - ctrl_cost_weight * ||a||^2
     """
     def __init__(self, env, baseline_height: float = 1.25, beta: float = 5.0, ctrl_cost_weight: float = 0.001):
@@ -195,7 +194,6 @@ def make_render_vecenv(task_make_env, seed=0):
 
 
 def test_teacher_render(model_path: str, vec_path: Optional[str] = None, task: float = 1.0):
-    # build render env (DummyVecEnv -> VecNormalize)
     venv = make_render_vecenv(lambda: task_halfcheetah_target_velocity_render(task, seed=0), seed=0)
     venv = VecNormalize.load(vec_path, venv)
     venv.training = False

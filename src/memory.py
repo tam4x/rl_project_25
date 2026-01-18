@@ -34,8 +34,7 @@ def build_vec_env(task: Task, seed: int = 0, normalize_obs: bool = True):
 
 def load_sac_teacher(task: Task, model_path: str, vec_path: Optional[str], seed: int = 0):
     """
-    Loads SAC model + VecNormalize stats (if provided) for correct obs normalization.
-    Returns (model, venv) where venv is ready for inference/eval.
+    Loads SAC model + VecNormalize stats for correct obs normalization.
     """
     venv = build_vec_env(task, seed=seed, normalize_obs=False)
 
@@ -52,9 +51,6 @@ def load_sac_teacher(task: Task, model_path: str, vec_path: Optional[str], seed:
 def sac_policy_params(model: SAC, obs_batch: np.ndarray):
     """
     obs_batch: (n_envs, obs_dim) in VecEnv format (here n_envs=1).
-    Returns:
-      mu:      (n_envs, act_dim)
-      log_std: (n_envs, act_dim)
     """
     obs_t = torch.as_tensor(obs_batch).to(model.device)
     mu_t, log_std_t, _ = model.policy.actor.get_action_dist_params(obs_t)
@@ -71,10 +67,6 @@ def augment_obs_with_task_id(
     encoding: str = "onehot",
     dtype: np.dtype = np.float32,
 ) -> np.ndarray:
-    """
-    obs_batch: (n_envs, obs_dim)
-    Returns augmented obs: (n_envs, obs_dim + extra)
-    """
     if encoding == "onehot":
         if not (0 <= task_id < n_tasks):
             raise ValueError(f"task_id={task_id} out of range for n_tasks={n_tasks}")
@@ -103,12 +95,10 @@ def collect_memory_from_sac_teacher(
 ) -> Dict[str, Any]:
     """
     Collects memory dataset:
-      - obs_aug (obs + task-id encoding)  <-- for student
+      - obs_aug (obs + task-id encoding)
       - mu, log_std (teacher dist params)
       - (optional) action
 
-    IMPORTANT: teacher inference uses the ORIGINAL obs (not augmented).
-    NOTE: obs from VecNormalize-wrapped venv are already normalized.
     """
     venv.seed(seed)
     obs = venv.reset()
@@ -146,9 +136,9 @@ def collect_memory_from_sac_teacher(
         "task_id": int(task_id),                 
         "n_tasks": int(n_tasks),                 
         "task_id_encoding": task_id_encoding,    
-        "obs": np.concatenate(obs_list, axis=0),        # (n_steps, obs_dim + extra)
-        "mu": np.concatenate(mu_list, axis=0),          # (n_steps, act_dim)
-        "log_std": np.concatenate(logstd_list, axis=0), # (n_steps, act_dim)
+        "obs": np.concatenate(obs_list, axis=0),        
+        "mu": np.concatenate(mu_list, axis=0),          
+        "log_std": np.concatenate(logstd_list, axis=0), 
     }
     if store_actions:
         data["action"] = np.concatenate(act_list, axis=0)

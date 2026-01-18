@@ -147,7 +147,6 @@ def action_mse(mu_s, action_t, action_space=None):
 
 # D3
 def certainty_weights(log_std_t, eps=1e-6):
-    # weight per sample (B,)
     std_t = torch.exp(log_std_t)             
     w = 1.0 / (eps + std_t.mean(dim=-1))      
     w = w / (w.mean() + 1e-8)
@@ -170,7 +169,6 @@ def weighted_diag_gaussian_kl(mu_t, log_std_t, mu_s, log_std_s):
 def sac_teacher_latent(model, obs_batch_np):
     """
     Returns teacher actor latent features for given (normalized) obs batch.
-    obs_batch_np: (B, obs_dim) or (1, obs_dim)
     """
     actor = model.policy.actor
     obs = torch.as_tensor(obs_batch_np, dtype=torch.float32, device=model.device)
@@ -226,16 +224,11 @@ def squash(mu, action_space):
 
 def sample_action_from_student(
     student,
-    obs: torch.Tensor,           # shape: (B, obs_dim)
+    obs: torch.Tensor,           
     low,
-    high,                # gym.spaces.Box
+    high,                
     deterministic: bool = False,
 ):
-    """
-    Returns:
-      action: (B, act_dim) in env action space
-      pre_tanh_action: (B, act_dim) before tanh
-    """
     mu, log_std = student(obs)
     std = torch.exp(log_std)
 

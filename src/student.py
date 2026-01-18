@@ -61,14 +61,12 @@ def evaluate_student_on_all_tasks(student, TASK_SEQUENCE, seed=0, n_episodes=10)
     for i, cfg in enumerate(TASK_SEQUENCE):
         task = Task(cfg["name"], cfg["env_fn"])
 
-        # build eval env with the correct vecnorm stats
         venv_eval = build_vec_env(task, seed=seed, normalize_obs=False)
         if cfg["vec_path"] is not None:
             venv_eval = VecNormalize.load(cfg["vec_path"], venv_eval)
             venv_eval.training = False
             venv_eval.norm_reward = False
 
-        # attach task metadata so eval_offline_student can append one-hot
         venv_eval.task_id = cfg["task_id"]
         venv_eval.n_tasks = cfg["n_tasks"]
 
